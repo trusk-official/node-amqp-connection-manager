@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import pb from 'promise-breaker';
 import DiskArray from '@trusk/array-to-disk';
+import rimraf from "rimraf";
+import path from "path";
 
 /**
  *  Calls to `publish()` or `sendToQueue()` work just like in amqplib, but messages are queued internally and
@@ -164,22 +166,32 @@ export default class ChannelWrapper extends EventEmitter {
         // Place to store queued messages.
         this._messages = new DiskArray(options.swap_path, options.swap_size);
         this._messages.setEventEmitter(this, "droppedMessage");
+        if (options.swap_path) {
+          rimraf.sync(`${path.resolve(options.swap_path)}/data.*`);
+        }
         const messages_to_republish = [];
         while (this._messages.length) {
           messages_to_republish.push(this._messages.shift());
         }
         while (messages_to_republish.length) {
-          let content =
-            messages_to_republish[0].content.type === "Buffer"
-              ? Buffer.from(messages_to_republish[0].content)
-              : messages_to_republish[0].content;
-          const args = [
-            messages_to_republish[0].exchange || messages_to_republish[0].queue,
-            messages_to_republish[0].routingKey,
-            content,
-            messages_to_republish[0].options
-          ];
-          this[messages_to_republish[0].type](...args);
+          const mtr = messages_to_republish[0];
+          if (mtr && mtr.content && ["publish", "sendToQueue"].includes(mtr.type)) {
+            const content =
+              mtr.content.type === "Buffer"
+                ? Buffer.from(mtr.content)
+                : mtr.content || null;
+            const arg = [
+              ...(mtr.type === "publish"
+                ? [mtr.exchange, mtr.routingKey || "", content, mtr.options]
+                : []),
+              ...(mtr.type === "sendToQueue"
+                ? [mtr.queue || "", content, mtr.options]
+                : [])
+            ];
+            this[mtr.type](
+              ...arg
+            );
+          }
           messages_to_republish.shift();
         }
 
