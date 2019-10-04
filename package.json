@@ -1,11 +1,12 @@
 {
   "name": "@trusk/amqp-connection-manager",
-  "version": "3.2.3",
+  "version": "3.2.4",
   "description": "Auto-reconnect and round robin support for amqplib.",
   "main": "lib/index.js",
   "dependencies": {
     "@trusk/array-to-disk": "1.1.0",
-    "promise-breaker": "^5.0.0"
+    "promise-breaker": "^5.0.0",
+    "rimraf": "^3.0.0"
   },
   "peerDependencies": {
     "amqplib": "*"
